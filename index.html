@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Office Floor Plan Designer</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; background: #f5f4f0; color: #1a1a18; min-height: 100vh; }
+
+  #app { max-width: 820px; margin: 0 auto; padding: 2rem 1rem; }
+
+  /* ── UPLOAD ── */
+  #upload-screen { display: flex; flex-direction: column; align-items: center; padding: 3rem 1rem; }
+  .app-title { font-size: 26px; font-weight: 600; margin-bottom: 6px; letter-spacing: -0.5px; }
+  .app-sub { font-size: 14px; color: #666; margin-bottom: 2.5rem; }
+  .upload-zone {
+    border: 2px dashed #ccc; border-radius: 14px; padding: 3rem 2.5rem;
+    text-align: center; width: 100%; max-width: 460px; cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+  }
+  .upload-zone:hover, .upload-zone.drag-over { border-color: #555; background: #eeecea; }
+  .upload-zone input { display: none; }
+  .upload-icon { font-size: 40px; margin-bottom: 1rem; }
+  .upload-title { font-size: 16px; font-weight: 600; margin-bottom: 6px; }
+  .upload-sub { font-size: 13px; color: #888; margin-bottom: 1.2rem; }
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 20px; border: 1px solid #ccc; border-radius: 8px; background: #fff; font-size: 14px; cursor: pointer; color: #1a1a18; font-family: inherit; transition: background 0.15s, border-color 0.15s; }
+  .btn:hover { background: #eeecea; border-color: #aaa; }
+  .btn-primary { background: #1a1a18; color: #fff; border-color: #1a1a18; }
+  .btn-primary:hover { background: #333; }
+
+  /* ── WIZARD ── */
+  #wizard-screen { display: none; background: #fff; border-radius: 14px; border: 1px solid #e0dfd8; padding: 1.5rem; }
+  .wizard-header { display: flex; align-items: center; gap: 12px; margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 1px solid #eee; }
+  .wizard-header h2 { font-size: 17px; font-weight: 600; }
+  .step-badge { font-size: 12px; color: #888; background: #f5f4f0; padding: 3px 10px; border-radius: 20px; border: 1px solid #e0dfd8; }
+
+  .added-section { margin-bottom: 1.25rem; }
+  .section-label { font-size: 11px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: #999; margin-bottom: 8px; }
+  .furniture-chip { display: inline-flex; align-items: center; gap: 6px; background: #f5f4f0; border: 1px solid #e0dfd8; border-radius: 20px; padding: 4px 12px; font-size: 13px; margin: 3px; }
+  .chip-dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+
+  .q-block { margin-bottom: 0; animation: fadeSlide 0.3s ease; }
+  @keyframes fadeSlide { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+  .q-num { font-size: 11px; font-weight: 700; letter-spacing: 0.1em; color: #aaa; margin-bottom: 4px; }
+  .q-text { font-size: 15px; font-weight: 600; margin-bottom: 14px; color: #1a1a18; }
+  .q-row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 14px; }
+  .q-field { display: flex; align-items: center; gap: 7px; }
+  .q-field label { font-size: 13px; color: #666; white-space: nowrap; }
+  .q-field input { padding: 7px 10px; border: 1px solid #d0cfca; border-radius: 8px; background: #faf9f7; font-size: 14px; font-family: inherit; color: #1a1a18; width: 90px; outline: none; }
+  .q-field input:focus { border-color: #888; background: #fff; }
+  .big-input { width: 100%; max-width: 340px; padding: 9px 12px; border: 1px solid #d0cfca; border-radius: 8px; font-size: 14px; font-family: inherit; background: #faf9f7; color: #1a1a18; outline: none; }
+  .big-input:focus { border-color: #888; background: #fff; }
+  .choice-row { display: flex; gap: 10px; margin-bottom: 14px; }
+  .choice-btn { padding: 8px 22px; border: 1px solid #d0cfca; border-radius: 8px; background: #fff; font-size: 14px; cursor: pointer; font-family: inherit; transition: all 0.15s; }
+  .choice-btn:hover { background: #f5f4f0; border-color: #999; }
+  .choice-btn.yes { color: #0f6e56; border-color: #9FE1CB; background: #f0fdf8; }
+  .choice-btn.yes:hover { background: #e1f5ee; }
+  .choice-btn.no { color: #993c1d; border-color: #F5C4B3; background: #fdf6f3; }
+  .choice-btn.no:hover { background: #faece7; }
+
+  /* ── CANVAS ── */
+  #canvas-screen { display: none; background: #fff; border-radius: 14px; border: 1px solid #e0dfd8; overflow: hidden; }
+  .toolbar { display: flex; align-items: center; gap: 10px; padding: 0.9rem 1.25rem; border-bottom: 1px solid #eee; flex-wrap: wrap; }
+  .toolbar-label { font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #aaa; white-space: nowrap; }
+  .palette-wrap { display: flex; gap: 7px; flex-wrap: wrap; flex: 1; }
+  .palette-btn { display: flex; align-items: center; gap: 6px; padding: 5px 14px; border: 1px solid #d0cfca; border-radius: 20px; font-size: 12px; cursor: pointer; background: #fff; font-family: inherit; transition: all 0.15s; }
+  .palette-btn:hover { background: #f5f4f0; }
+  .palette-btn.active { border-color: #1a1a18; background: #1a1a18; color: #fff; }
+  .palette-btn.active .p-dot { border: 2px solid #fff; }
+  .p-dot { width: 9px; height: 9px; border-radius: 2px; flex-shrink: 0; }
+
+  .canvas-wrap { background: #e8e7e2; position: relative; }
+  canvas { display: block; width: 100%; max-height: 60vh; object-fit: contain; cursor: crosshair; }
+  .canvas-hint { font-size: 12px; color: #aaa; padding: 7px 1.25rem; border-top: 1px solid #eee; }
+  .toolbar-right { display: flex; gap: 8px; margin-left: auto; }
+
+  /* ── SCALE VERIFY ── */
+  #scale-screen { display: none; background: #fff; border-radius: 14px; border: 1px solid #e0dfd8; padding: 1.5rem; }
+  .scale-header { display: flex; align-items: center; gap: 10px; margin-bottom: 1.25rem; padding-bottom: 1rem; border-bottom: 1px solid #eee; }
+  .scale-header h2 { font-size: 17px; font-weight: 600; }
+  .scale-icon { width: 32px; height: 32px; border-radius: 8px; background: #f0fdf8; border: 1px solid #9FE1CB; display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
+  .scale-card { background: #f5f4f0; border: 1px solid #e0dfd8; border-radius: 12px; padding: 1.25rem 1.5rem; margin-bottom: 1.25rem; }
+  .scale-estimate { font-size: 28px; font-weight: 700; color: #1a1a18; letter-spacing: -1px; }
+  .scale-unit { font-size: 15px; font-weight: 400; color: #888; margin-left: 4px; }
+  .scale-note { font-size: 13px; color: #999; margin-top: 4px; }
+  .scale-q { font-size: 15px; font-weight: 600; margin-bottom: 14px; color: #1a1a18; }
+  .scale-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+  .inline-field { display: flex; align-items: center; gap: 8px; background: #faf9f7; border: 1px solid #d0cfca; border-radius: 8px; padding: 6px 12px; }
+  .inline-field label { font-size: 13px; color: #666; white-space: nowrap; }
+  .inline-field input { border: none; background: transparent; font-size: 15px; font-weight: 600; color: #1a1a18; width: 80px; outline: none; font-family: inherit; }
+  .inline-field span { font-size: 13px; color: #888; }
+  #scale-preview { width: 100%; max-height: 160px; object-fit: contain; border-radius: 8px; margin-bottom: 1rem; border: 1px solid #e0dfd8; background: #e8e7e2; display: block; }
+</style>
+</head>
+<body>
+<div id="app">
+
+<!-- UPLOAD -->
+<div id="upload-screen">
+  <div class="app-title">Office Floor Plan Designer</div>
+  <div class="app-sub">Upload a floor plan, then configure and place your furniture</div>
+  <div class="upload-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
+    <div class="upload-icon">🗂️</div>
+    <div class="upload-title">Drop your floor plan here</div>
+    <div class="upload-sub">Supports JPG, PNG, GIF, WebP · PDF (first page)</div>
+    <input type="file" id="file-input" accept="image/*,.pdf">
+    <button class="btn" onclick="event.stopPropagation(); document.getElementById('file-input').click()">Browse files</button>
+  </div>
+</div>
+
+<!-- SCALE VERIFY -->
+<div id="scale-screen">
+  <div class="scale-header">
+    <div class="scale-icon">📐</div>
+    <h2>Verify Floor Plan Scale</h2>
+  </div>
+  <img id="scale-preview" src="" alt="floor plan preview">
+  <div class="scale-card">
+    <div style="font-size:12px;font-weight:600;letter-spacing:0.07em;text-transform:uppercase;color:#aaa;margin-bottom:6px;">Estimated floor area</div>
+    <div>
+      <span class="scale-estimate" id="est-sqm">—</span>
+      <span class="scale-unit">m²</span>
+    </div>
+    <div class="scale-note" id="est-note">Based on image dimensions and detected room boundary</div>
+  </div>
+  <div class="scale-q">Is this correct?</div>
+  <div class="scale-actions">
+    <button class="choice-btn yes" onclick="confirmScale(true)">Yes, that's correct</button>
+    <span style="font-size:13px;color:#aaa">or</span>
+    <div class="inline-field">
+      <label>No, it should be</label>
+      <input id="correct-sqm" type="number" min="1" step="0.5" placeholder="e.g. 45">
+      <span>m²</span>
+    </div>
+    <button class="btn btn-primary" onclick="confirmScale(false)">Confirm</button>
+  </div>
+  <div style="font-size:12px;color:#bbb;margin-top:4px;">The correct area helps accurately size furniture blocks on the plan.</div>
+</div>
+
+<!-- WIZARD -->
+<div id="wizard-screen">
+  <div class="wizard-header">
+    <h2>Furniture Setup</h2>
+    <span class="step-badge" id="step-badge">Step 1 of 3</span>
+  </div>
+  <div id="added-wrap" class="added-section" style="display:none;">
+    <div class="section-label">Added so far</div>
+    <div id="chips-wrap"></div>
+    <div style="border-top:1px solid #eee; margin: 14px 0 16px;"></div>
+  </div>
+  <div id="q-wrap"></div>
+</div>
+
+<!-- CANVAS -->
+<div id="canvas-screen">
+  <div class="toolbar">
+    <span class="toolbar-label">Place:</span>
+    <div class="palette-wrap" id="palette"></div>
+    <div class="toolbar-right">
+      <button class="btn" onclick="rotateLast()" title="Rotate last placed">↻ Rotate</button>
+      <button class="btn" onclick="undoLast()">↩ Undo</button>
+      <button class="btn btn-primary" onclick="clearAll()">Clear all</button>
+    </div>
+  </div>
+  <div class="canvas-wrap" id="canvas-wrap">
+    <canvas id="floor-canvas"></canvas>
+  </div>
+  <div class="canvas-hint">Select a furniture type above · Click on the plan to place it · Drag placed items to reposition · ↻ Rotate to spin last item</div>
+</div>
+
+</div>
+<script>
+const COLORS = ['#378ADD','#1D9E75','#D85A30','#D4537E','#7F77DD','#639922','#BA7517','#E24B4A','#0F6E56'];
+const state = { furniture: [], bgImage: null, bgImg: null, bgScale: 1 };
+let canvas, ctx, placing = null, placed = [], dragging = null, dragOff = {x:0,y:0};
+
+function $(id){ return document.getElementById(id); }
+
+// --- File handling ---
+$('file-input').addEventListener('change', e => { const f=e.target.files[0]; if(f) handleFile(f); });
+const dz = $('drop-zone');
+dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('drag-over'); const f=e.dataTransfer.files[0]; if(f) handleFile(f); });
+
+function handleFile(file) {
+  if (file.type === 'application/pdf') { loadPdf(file); }
+  else if (file.type.startsWith('image/')) {
+    const r = new FileReader();
+    r.onload = ev => { state.bgImage = ev.target.result; showScaleVerify(); };
+    r.readAsDataURL(file);
+  }
+}
+
+function loadPdf(file) {
+  const s = document.createElement('script');
+  s.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+  s.onload = () => {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    const r = new FileReader();
+    r.onload = async ev => {
+      const pdf = await pdfjsLib.getDocument({data: ev.target.result}).promise;
+      const page = await pdf.getPage(1);
+      const vp = page.getViewport({scale:1.8});
+      const tmp = document.createElement('canvas');
+      tmp.width = vp.width; tmp.height = vp.height;
+      await page.render({canvasContext: tmp.getContext('2d'), viewport: vp}).promise;
+      state.bgImage = tmp.toDataURL();
+      // store native pixel dimensions for scale estimation
+      state.nativeW = vp.width / 1.8;
+      state.nativeH = vp.height / 1.8;
+      showScaleVerify();
+    };
+    r.readAsArrayBuffer(file);
+  };
+  document.head.appendChild(s);
+}
+
+// --- Scale verification ---
+function estimateAreaSqm(img) {
+  // Render image at reduced size and count non-white pixels to find room boundary
+  const MAX = 300;
+  const scale = Math.min(1, MAX / img.width, MAX / img.height);
+  const w = Math.round(img.width * scale), h = Math.round(img.height * scale);
+  const tmp = document.createElement('canvas');
+  tmp.width = w; tmp.height = h;
+  const c = tmp.getContext('2d');
+  c.drawImage(img, 0, 0, w, h);
+  const data = c.getImageData(0, 0, w, h).data;
+
+  // Count pixels that are NOT near-white (i.e., interior room area)
+  let interior = 0;
+  for (let i = 0; i < data.length; i += 4) {
+    const r = data[i], g = data[i+1], b = data[i+2];
+    const brightness = (r + g + b) / 3;
+    if (brightness < 230) interior++;
+  }
+  const interiorRatio = interior / (w * h);
+
+  // Assume image represents a floor plan at ~96 DPI (screen) or 150 DPI (PDF)
+  // Use native pixel size to get physical dimensions in metres (A-series assumption: 1px ~ 1cm at 100dpi scale)
+  // We use a heuristic: total image area in m² assuming 1px = 1cm at a typical 1:50 architectural scale
+  const nativeW = state.nativeW || img.width;
+  const nativeH = state.nativeH || img.height;
+
+  // Typical architectural floor plan: 1:50 scale, printed at ~100 DPI
+  // => 1 pixel ≈ 0.254mm (at 100dpi) * 50 = 12.7mm = 1.27cm in real life
+  // Total real area = (nativeW * 1.27cm) * (nativeH * 1.27cm) in cm², convert to m²
+  const cmPerPx = 1.27;
+  const totalAreaM2 = (nativeW * cmPerPx / 100) * (nativeH * cmPerPx / 100);
+  const estimatedM2 = totalAreaM2 * interiorRatio;
+
+  return Math.max(5, Math.round(estimatedM2 * 2) / 2); // round to 0.5
+}
+
+function showScaleVerify() {
+  $('upload-screen').style.display = 'none';
+  $('scale-screen').style.display = 'block';
+
+  // Show thumbnail
+  $('scale-preview').src = state.bgImage;
+
+  const img = new Image();
+  img.onload = () => {
+    state.nativeW = state.nativeW || img.width;
+    state.nativeH = state.nativeH || img.height;
+    const est = estimateAreaSqm(img);
+    state.estimatedSqm = est;
+    $('est-sqm').textContent = est.toLocaleString();
+    $('est-note').textContent =
+      `Detected from image dimensions (${img.width}×${img.height}px) at assumed 1:50 architectural scale`;
+    $('correct-sqm').placeholder = est;
+  };
+  img.src = state.bgImage;
+}
+
+function confirmScale(useEstimate) {
+  let sqm;
+  if (useEstimate) {
+    sqm = state.estimatedSqm;
+  } else {
+    const v = parseFloat($('correct-sqm').value);
+    if (!v || v <= 0) { flash('correct-sqm'); return; }
+    sqm = v;
+  }
+  state.confirmedSqm = sqm;
+  // Derive real-world cm per pixel ratio for the canvas
+  // We'll store the total real area in cm² so cmToPx can use it
+  state.realAreaCm2 = sqm * 10000;
+  $('scale-screen').style.display = 'none';
+  startWizard();
+}
+
+// --- Wizard ---
+let wiz = { name:'', w:0, l:0 };
+
+function startWizard() {
+  $('upload-screen').style.display = 'none';
+  $('wizard-screen').style.display = 'block';
+  showQ1();
+}
+
+function updateChips() {
+  if (!state.furniture.length) { $('added-wrap').style.display='none'; return; }
+  $('added-wrap').style.display = 'block';
+  $('chips-wrap').innerHTML = state.furniture.map(f =>
+    `<span class="furniture-chip"><span class="chip-dot" style="background:${f.color}"></span>${f.name} &nbsp;<span style="color:#aaa">${f.w}×${f.l}cm · ${f.pcs}pcs</span></span>`
+  ).join('');
+}
+
+function showQ1() {
+  $('step-badge').textContent = 'Step 1 — Main piece';
+  render(`
+    <div class="q-block">
+      <div class="q-num">Q1</div>
+      <div class="q-text">Which piece of furniture will occupy the most space?</div>
+      <input class="big-input" id="q1n" type="text" placeholder="e.g. Conference table" autofocus>
+      <div style="margin-top:14px"><button class="btn btn-primary" onclick="h1()">Next →</button></div>
+    </div>`);
+  setTimeout(()=>{ const e=$('q1n'); if(e) e.focus(); },50);
+}
+function h1() {
+  const v = val('q1n'); if(!v) return flash('q1n');
+  wiz.name = v; showQ2(v, false);
+}
+
+function showQ2(name, isAdd) {
+  $('step-badge').textContent = isAdd ? 'Dimensions' : 'Step 2 — Dimensions';
+  const qn = isAdd ? 'Q5' : 'Q2';
+  render(`
+    <div class="q-block">
+      <div class="q-num">${qn}</div>
+      <div class="q-text">Please state the 2D dimensions of the <em>${name}</em>.</div>
+      <div class="q-row">
+        <div class="q-field"><label>Width =</label><input id="qw" type="number" min="1" placeholder="cm" autofocus></div>
+        <div class="q-field"><label>Length =</label><input id="ql" type="number" min="1" placeholder="cm"></div>
+        <span style="font-size:12px;color:#bbb">centimetres</span>
+      </div>
+      <button class="btn btn-primary" onclick="h2()">Next →</button>
+    </div>`);
+  setTimeout(()=>{ const e=$('qw'); if(e) e.focus(); },50);
+}
+function h2() {
+  const w=val('qw'), l=val('ql'); if(!w||!l) return;
+  wiz.w=parseFloat(w); wiz.l=parseFloat(l); showQ3();
+}
+
+function showQ3(isAdd) {
+  $('step-badge').textContent = isAdd ? 'Quantity' : 'Step 3 — Quantity';
+  const qn = isAdd ? 'Q6' : 'Q3';
+  render(`
+    <div class="q-block">
+      <div class="q-num">${qn}</div>
+      <div class="q-text">How many are there?</div>
+      <div class="q-row">
+        <div class="q-field"><label>PCS =</label><input id="qpcs" type="number" min="1" value="1" style="width:70px"></div>
+      </div>
+      <button class="btn btn-primary" onclick="h3()">Next →</button>
+    </div>`);
+}
+function h3() {
+  const p = val('qpcs'); if(!p||p<1) return;
+  state.furniture.push({name:wiz.name, w:wiz.w, l:wiz.l, pcs:parseInt(p), color:COLORS[state.furniture.length%COLORS.length]});
+  updateChips(); showQ4();
+}
+
+function showQ4() {
+  $('step-badge').textContent = 'Add more?';
+  const qn = state.furniture.length > 1 ? 'Q7' : 'Q4';
+  render(`
+    <div class="q-block">
+      <div class="q-num">${qn}</div>
+      <div class="q-text">Do you have another piece of furniture to add?</div>
+      <div class="choice-row">
+        <button class="choice-btn yes" onclick="h4(true)">Yes</button>
+        <button class="choice-btn no" onclick="h4(false)">No — go to layout</button>
+      </div>
+    </div>`);
+}
+function h4(yes) {
+  if (yes) { wiz = {name:'',w:0,l:0}; showQ4Name(); }
+  else { startCanvas(); }
+}
+
+function showQ4Name() {
+  $('step-badge').textContent = 'New item — name';
+  render(`
+    <div class="q-block">
+      <div class="q-num">Q5</div>
+      <div class="q-text">What is the name of this piece of furniture?</div>
+      <input class="big-input" id="q5n" type="text" placeholder="e.g. Bookshelf" autofocus>
+      <div style="margin-top:14px"><button class="btn btn-primary" onclick="h5n()">Next →</button></div>
+    </div>`);
+  setTimeout(()=>{ const e=$('q5n'); if(e) e.focus(); },50);
+}
+function h5n() {
+  const v = val('q5n'); if(!v) return flash('q5n');
+  wiz.name = v; showQ2(v, true);
+}
+
+function render(html) { $('q-wrap').innerHTML = html; }
+function val(id) { const e=$(id); return e ? e.value.trim() : ''; }
+function flash(id) { const e=$(id); if(!e) return; e.style.borderColor='#E24B4A'; setTimeout(()=>e.style.borderColor='',1200); }
+
+// --- Canvas ---
+function buildPalette() {
+  const p = $('palette'); p.innerHTML = '';
+  state.furniture.forEach(f => {
+    const b = document.createElement('button');
+    b.className = 'palette-btn';
+    b.innerHTML = `<span class="p-dot" style="background:${f.color}"></span>${f.name}<span class="p-count" style="margin-left:6px;font-size:11px;opacity:0.6">0/${f.pcs}</span>`;
+    b.onclick = () => {
+      if (placedCountOf(f) >= f.pcs) { showPlaceLimitToast(f); return; }
+      document.querySelectorAll('.palette-btn').forEach(x=>x.classList.remove('active'));
+      b.classList.add('active'); placing = f;
+    };
+    p.appendChild(b);
+  });
+}
+
+function startCanvas() {
+  $('wizard-screen').style.display = 'none';
+  $('canvas-screen').style.display = 'block';
+  buildPalette();
+  setupCanvas();
+}
+
+function setupCanvas() {
+  canvas = $('floor-canvas'); ctx = canvas.getContext('2d');
+  const img = new Image();
+  img.onload = () => {
+    const wrap = $('canvas-wrap');
+    const maxW = wrap.clientWidth || 780;
+    const maxH = window.innerHeight * 0.6;
+    const sc = Math.min(1, maxW/img.width, maxH/img.height);
+    canvas.width = img.width * sc; canvas.height = img.height * sc;
+    state.bgImg = img; state.bgScale = sc;
+    draw();
+  };
+  img.src = state.bgImage;
+  canvas.addEventListener('mousedown', onMD);
+  canvas.addEventListener('mousemove', onMM);
+  canvas.addEventListener('mouseup', ()=>dragging=null);
+  canvas.addEventListener('click', onClick);
+  canvas.addEventListener('touchstart', onTS, {passive:false});
+  canvas.addEventListener('touchmove', onTM, {passive:false});
+  canvas.addEventListener('touchend', ()=>dragging=null);
+}
+
+function cmToPx(cm) {
+  if (state.realAreaCm2 && canvas.width && canvas.height) {
+    const aspect = canvas.width / canvas.height;
+    const realW_cm = Math.sqrt(state.realAreaCm2 * aspect);
+    const pxPerCm = canvas.width / realW_cm;
+    return cm * pxPerCm;
+  }
+  const minDim = Math.min(canvas.width, canvas.height);
+  return cm / (800 / minDim);
+}
+
+function cPos(e) {
+  const r = canvas.getBoundingClientRect();
+  const sx = canvas.width/r.width, sy = canvas.height/r.height;
+  return { x:(e.clientX-r.left)*sx, y:(e.clientY-r.top)*sy };
+}
+function tPos(e) {
+  const t=e.touches[0], r=canvas.getBoundingClientRect();
+  const sx=canvas.width/r.width, sy=canvas.height/r.height;
+  return {x:(t.clientX-r.left)*sx, y:(t.clientY-r.top)*sy};
+}
+
+let didDrag = false;
+let lastTouched = -1; // index of last dragged/clicked-on piece
+
+function placedCountOf(f) {
+  return placed.filter(p => p.f === f).length;
+}
+
+function tryPlace(x, y) {
+  if (!placing) return;
+  if (placedCountOf(placing) >= placing.pcs) {
+    showPlaceLimitToast(placing);
+    return;
+  }
+  const pw=cmToPx(placing.w), ph=cmToPx(placing.l);
+  const idx = placed.length;
+  placed.push({f:placing, cx:x, cy:y, pw, ph, rot:0});
+  lastTouched = idx;
+  updatePaletteCount();
+  draw();
+}
+
+function showPlaceLimitToast(f) {
+  let toast = document.getElementById('place-toast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'place-toast';
+    toast.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1a1a18;color:#fff;padding:9px 20px;border-radius:20px;font-size:13px;z-index:999;pointer-events:none;transition:opacity 0.3s;';
+    document.body.appendChild(toast);
+  }
+  toast.textContent = `Maximum reached: ${f.name} (${f.pcs} pcs)`;
+  toast.style.opacity = '1';
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => { toast.style.opacity = '0'; }, 2000);
+}
+
+function updatePaletteCount() {
+  document.querySelectorAll('.palette-btn').forEach((b, i) => {
+    const f = state.furniture[i];
+    if (!f) return;
+    const used = placedCountOf(f);
+    const full = used >= f.pcs;
+    b.querySelector('.p-count').textContent = `${used}/${f.pcs}`;
+    b.style.opacity = full ? '0.45' : '1';
+    if (full && placing === f) {
+      placing = null;
+      b.classList.remove('active');
+    }
+  });
+}
+
+function onMD(e) {
+  didDrag=false;
+  const {x,y}=cPos(e);
+  for(let i=placed.length-1;i>=0;i--){
+    if(hitTest(placed[i],x,y)){
+      dragging={idx:i,ox:x-placed[i].cx,oy:y-placed[i].cy};
+      lastTouched=i;
+      draw();
+      return;
+    }
+  }
+}
+function onMM(e) {
+  if(!dragging) return; didDrag=true;
+  const {x,y}=cPos(e);
+  placed[dragging.idx].cx=x-dragging.ox; placed[dragging.idx].cy=y-dragging.oy; draw();
+}
+function onClick(e) {
+  if(didDrag) return;
+  const {x,y}=cPos(e);
+  // check if click hit an existing piece (select it)
+  for(let i=placed.length-1;i>=0;i--){
+    if(hitTest(placed[i],x,y)){ lastTouched=i; draw(); return; }
+  }
+  tryPlace(x, y);
+}
+function onTS(e) {
+  e.preventDefault(); didDrag=false;
+  const {x,y}=tPos(e);
+  for(let i=placed.length-1;i>=0;i--){
+    if(hitTest(placed[i],x,y)){
+      dragging={idx:i,ox:x-placed[i].cx,oy:y-placed[i].cy};
+      lastTouched=i;
+      draw();
+      return;
+    }
+  }
+  tryPlace(x, y);
+}
+function onTM(e) {
+  e.preventDefault(); if(!dragging) return; didDrag=true;
+  const {x,y}=tPos(e);
+  placed[dragging.idx].cx=x-dragging.ox; placed[dragging.idx].cy=y-dragging.oy; draw();
+}
+
+function hitTest(p,x,y) {
+  const cos=Math.cos(p.rot||0),sin=Math.sin(p.rot||0);
+  const dx=x-p.cx, dy=y-p.cy;
+  const lx=cos*dx+sin*dy, ly=-sin*dx+cos*dy;
+  return Math.abs(lx)<=p.pw/2 && Math.abs(ly)<=p.ph/2;
+}
+
+function rotateLast() {
+  const idx = lastTouched >= 0 && lastTouched < placed.length ? lastTouched : placed.length - 1;
+  if (idx >= 0) { placed[idx].rot=(placed[idx].rot||0)+Math.PI/2; draw(); }
+}
+function undoLast() {
+  if(placed.length){
+    placed.pop();
+    lastTouched = Math.min(lastTouched, placed.length-1);
+    updatePaletteCount();
+    draw();
+  }
+}
+function clearAll() { placed=[]; lastTouched=-1; updatePaletteCount(); draw(); }
+
+function draw() {
+  if(!canvas||!ctx) return;
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  if(state.bgImg) ctx.drawImage(state.bgImg,0,0,canvas.width,canvas.height);
+  placed.forEach((p, idx)=>{
+    ctx.save();
+    ctx.translate(p.cx,p.cy);
+    ctx.rotate(p.rot||0);
+    // selection highlight
+    if(idx === lastTouched) {
+      ctx.strokeStyle='#fff';
+      ctx.lineWidth=4;
+      ctx.strokeRect(-p.pw/2-2,-p.ph/2-2,p.pw+4,p.ph+4);
+      ctx.strokeStyle=p.f.color;
+      ctx.lineWidth=2;
+      ctx.setLineDash([5,3]);
+      ctx.strokeRect(-p.pw/2-2,-p.ph/2-2,p.pw+4,p.ph+4);
+      ctx.setLineDash([]);
+    }
+    ctx.globalAlpha=0.68;
+    ctx.fillStyle=p.f.color;
+    ctx.fillRect(-p.pw/2,-p.ph/2,p.pw,p.ph);
+    ctx.globalAlpha=1;
+    ctx.strokeStyle=p.f.color;
+    ctx.lineWidth=1.5;
+    ctx.strokeRect(-p.pw/2,-p.ph/2,p.pw,p.ph);
+    ctx.fillStyle='#fff';
+    const fs=Math.max(9,Math.min(13,p.ph*0.3));
+    ctx.font=`600 ${fs}px 'Segoe UI',system-ui,sans-serif`;
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    const label=p.f.name.length>11?p.f.name.slice(0,10)+'…':p.f.name;
+    ctx.fillText(label,0,0);
+    ctx.restore();
+  });
+}
+</script>
+</body>
+</html>
